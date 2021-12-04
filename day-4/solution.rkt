@@ -5,16 +5,19 @@
 (require racket/stream)
 (require racket/string)
 
+;; The column and row size of a card.
+(define card-size 5)
+
 ;; Build a card from a sequence of numbers.
 (define (list->card ns)
-  (let ([rws (for/list ([i (range 0 5)])
+  (let ([rws (for/list ([i (range 0 card-size)])
                (list->set
-                (for/list ([j (range 0 5)])
-                  (list-ref ns (+ (* 5 i) j)))))]
-        [cls (for/list ([i (range 0 5)])
+                (for/list ([j (range 0 card-size)])
+                  (list-ref ns (+ (* card-size i) j)))))]
+        [cls (for/list ([i (range 0 card-size)])
                (list->set
-                (for/list ([j (range 0 5)])
-                  (list-ref ns (+ i (* 5 j))))))])
+                (for/list ([j (range 0 card-size)])
+                  (list-ref ns (+ i (* card-size j))))))])
     (append rws cls)))
 
 ;; Holds if a card has a completed row.
@@ -34,12 +37,11 @@
 
 ;; Find the last card to win.
 (define (last-card-to-win remaining ns)
-  (let ([marked (card-mark remaining (car ns))])
-    (if (andmap card-complete? marked)
+  (let* ([marked (card-mark remaining (car ns))]
+         [incomplete (filter-not card-complete? marked)])
+    (if (empty? incomplete)
         (list (car ns) marked)
-        (last-card-to-win
-         (filter-not card-complete? marked)
-         (cdr ns)))))
+        (last-card-to-win incomplete (cdr ns)))))
 
 ;; Compute the first result of playing the game.
 (define (compute-score called-number cards)
