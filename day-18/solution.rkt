@@ -15,9 +15,24 @@
    (lambda (l) (eval (read (open-input-string l))))
    (in-lines (open-input-file filename))))
 
+;; Recursively visit all terms in an expression and return a list of
+;; depth-term pairs.
+(define (expression->depth-list expression [depth 0])
+  (if
+   (list? expression)
+   (append (expression->depth-list (first expression) (add1 depth))
+           (expression->depth-list (second expression) (add1 depth)))
+   (list (cons depth expression))))
+
 ;;;
 ;;; Evaluation
 ;;;
+
+;; The depth at which pairs explode.
+(define explode-depth 5)
+
+;; The threshold at which values split.
+(define split-threshold 10)
 
 ;; Reduce a set of terms until they are stable.
 (define (reduce terms)
@@ -30,18 +45,9 @@
            (reduce splitted)))
      (reduce exploded))))
 
-;; Recursively visit all terms in an expression and return a list of
-;; depth-term pairs.
-(define (expression->depth-list expression [depth 0])
-  (if
-   (list? expression)
-   (append (expression->depth-list (first expression) (add1 depth))
-           (expression->depth-list (second expression) (add1 depth)))
-   (list (cons depth expression))))
-
 ;; Explode the first viable number in a depth list.
 (define (explode terms)
-  (let ([i (index-where terms (lambda (t) (>= (car t) 5)))])
+  (let ([i (index-where terms (lambda (t) (>= (car t) explode-depth)))])
     (if i (explode-at-index terms i) terms)))
 
 ;; Explode the pair that starts at the given index and return the
@@ -50,7 +56,7 @@
   (let* ([u (list-ref terms i)]
          [v (list-ref terms (add1 i))]
          [t (add-to-term (add-to-term terms (- i 1) u) (+ i 2) v)])
-    (append (take t i) (list (cons 4 0)) (drop t (+ i 2)))))
+    (append (take t i) (list (cons (sub1 explode-depth) 0)) (drop t (+ i 2)))))
 
 ;; Add the given value to the term at position j.
 (define (add-to-term terms j v)
@@ -60,7 +66,7 @@
 
 ;; Split the first viable number in a depth list.
 (define (split terms)
-  (let ([i (index-where terms (lambda (t) (>= (cdr t) 10)))])
+  (let ([i (index-where terms (lambda (t) (>= (cdr t) split-threshold)))])
     (if i (split-at-index terms i) terms)))
 
 ;; Split the number at the given index.
@@ -75,9 +81,9 @@
 
 ;; Join two depth lists into an addition.
 (define (add left right)
-  (append
-   (map (lambda (t) (cons (add1 (car t)) (cdr t))) left)
-   (map (lambda (t) (cons (add1 (car t)) (cdr t))) right)))
+  (map
+   (lambda (t) (cons (add1 (car t)) (cdr t)))
+   (append left right)))
 
 ;; Compute the reduced sum of a list of depth-lists.
 (define (sum depth-lists)
@@ -89,22 +95,21 @@
 
 ;; Compute the magnitude of a depth-list.
 (define (magnitude depth-list)
-  (cdar
-   (let loop ([terms depth-list] [depth 4] [p null] [out (list)])
-     (cond
-       [(<= depth 0) terms]
-       [(empty? terms) (loop out (sub1 depth) null (list))]
-       [else
-        (match-let ([(cons d v) (first terms)] [tail (rest terms)])
-          (cond
-            [(and (= depth d) (null? p)) (loop tail depth v out)]
-            [(= depth d)
-             (loop
-              tail
-              depth
-              null
-              (append out (list (cons (sub1 depth) (+ (* 3 p) (* 2 v))))))]
-            [else (loop tail depth null (append out (list (cons d v))))]))]))))
+  (let loop ([terms depth-list] [depth 4] [p null] [out (list)])
+    (cond
+      [(<= depth 0) (cdar terms)]
+      [(empty? terms) (loop out (sub1 depth) null (list))]
+      [else
+       (match-let ([(cons d v) (first terms)] [tail (rest terms)])
+         (cond
+           [(and (= depth d) (null? p)) (loop tail depth v out)]
+           [(= depth d)
+            (loop
+             tail
+             depth
+             null
+             (append out (list (cons (sub1 depth) (+ (* 3 p) (* 2 v))))))]
+           [else (loop tail depth null (append out (list (cons d v))))]))])))
 
 ;;;
 ;;; Solution
