@@ -9,10 +9,14 @@
 ;;; Parsing
 ;;;
 
+;; Get the current namespace so that we can eval the expressions.
+(define-namespace-anchor anc)
+(define ns (namespace-anchor->namespace anc))
+
 ;; Interpret a file as a list of expressions.
 (define (file->expressions filename)
   (sequence-map
-   (lambda (l) (eval (read (open-input-string l))))
+   (lambda (l) (eval (read (open-input-string l)) ns))
    (in-lines (open-input-file filename))))
 
 ;; Recursively visit all terms in an expression and return a list of
